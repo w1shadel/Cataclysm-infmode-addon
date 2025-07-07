@@ -1,0 +1,56 @@
+{
+  "fullrage": {
+    "category": "hostile",
+    "sounds": [
+      {
+        "name": "cha:fullrage",
+        "stream": false
+      }
+    ]
+  },
+  "rageactive": {
+    "category": "hostile",
+    "sounds": [
+      {
+        "name": "cha:rageactive",
+        "stream": false
+      }
+    ]
+  },
+  "rageend": {
+    "category": "hostile",
+    "sounds": [
+      {
+        "name": "cha:rageend",
+        "stream": false
+      }
+    ]
+  },
+  "adrenalineactivate": {
+    "category": "hostile",
+    "sounds": [
+      {
+        "name": "cha:adrenalineactivate",
+        "stream": false
+      }
+    ]
+  },
+  "adrenalinemajorloss": {
+    "category": "hostile",
+    "sounds": [
+      {
+        "name": "cha:adrenalinemajorloss",
+        "stream": false
+      }
+    ]
+  },
+  "fulladrenaline": {
+    "category": "hostile",
+    "sounds": [
+      {
+        "name": "cha:fulladrenaline",
+        "stream": false
+      }
+    ]
+  }
+}
