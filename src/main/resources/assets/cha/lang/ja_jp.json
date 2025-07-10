@@ -1,5 +1,6 @@
 {
   "key.cha.rage": "レイジモード",
   "key.cha.adrenaline": "アドレナリンモード",
-  "key.categories.cha": "cataclysm Infernum Mode"
+  "key.categories.cha": "Rage And Adrenaline",
+  "itemGroup.cha.rage_and_adrenaline": "Rage And Adrenalineのアイテム"
 }

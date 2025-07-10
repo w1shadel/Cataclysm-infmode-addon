@@ -1,5 +1,6 @@
 {
   "key.cha.rage": "Rage Mode",
   "key.cha.adrenaline": "Adrenaline Mode",
-  "key.categories.cha": "Cataclysm Infernum Mode"
+  "key.categories.cha": "Rage And Adrenaline",
+  "itemGroup.cha.rage_and_adrenaline": "Rage And Adrenaline"
 }

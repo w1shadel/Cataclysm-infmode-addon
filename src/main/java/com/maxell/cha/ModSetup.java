@@ -10,6 +10,6 @@ import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 public class ModSetup {
     @SubscribeEvent
     public static void onCommonSetup(FMLCommonSetupEvent event) {
-        event.enqueueWork(Rege.NetworkHandler::register); // ✅ 安全な登録タイミング
+        event.enqueueWork(NetworkHandler::register);
     }
 }

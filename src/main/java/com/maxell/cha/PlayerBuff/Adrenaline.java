@@ -2,16 +2,14 @@ package com.maxell.cha.PlayerBuff;
 
 import com.maxell.cha.CHA;
 import com.maxell.cha.Client.ModKeyBindings;
-import com.maxell.cha.Register.ModSounds;
+import com.maxell.cha.NetworkHandler;
+import com.maxell.cha.Register.ModSounds_Max;
 import com.maxell.cha.config.MInfConfig;
-import io.netty.buffer.Unpooled;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
@@ -28,237 +26,154 @@ import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.network.NetworkEvent;
-import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.PacketDistributor;
-import net.minecraftforge.network.simple.SimpleChannel;
 import net.minecraftforge.server.ServerLifecycleHooks;
-
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
 
 @Mod.EventBusSubscriber
 public class Adrenaline {
-    public static final Map<UUID, Integer> adrenalineMap = new HashMap<>();
-    public static final UUID ADRENALINE_ATTACK_BOOST_ID = UUID.fromString("99999999-8888-7777-6666-555555555555");
-    public static final Map<UUID, Boolean> pressedMap = new HashMap<>();
-    public static final AttributeModifier ADRENALINE_ATTACK_BOOST =
-            new AttributeModifier(ADRENALINE_ATTACK_BOOST_ID, "Adrenaline Mode Boost", MInfConfig.AdrenalinePower, AttributeModifier.Operation.MULTIPLY_BASE);
+    public static final Map<UUID, AdrenalineStatus> statusMap = new HashMap<>();
+    public static final UUID BOOST_ID = UUID.fromString("99999999-8888-7777-6666-555555555555");
+
+    public static AdrenalineStatus getStatus(UUID id) {
+        return statusMap.computeIfAbsent(id, k -> new AdrenalineStatus());
+    }
+
     public static class AdrenalineGaugeSyncPacket {
         private final int gauge;
         private final UUID playerId;
 
-        public AdrenalineGaugeSyncPacket(int gauge, UUID playerId) {
-            this.gauge = gauge;
-            this.playerId = playerId;
-        }
-
+        public AdrenalineGaugeSyncPacket(int g, UUID id) { gauge = g; playerId = id; }
         public static void encode(AdrenalineGaugeSyncPacket msg, FriendlyByteBuf buf) {
-            buf.writeInt(msg.gauge);
-            buf.writeUUID(msg.playerId);
+            buf.writeInt(msg.gauge); buf.writeUUID(msg.playerId);
         }
-
         public static AdrenalineGaugeSyncPacket decode(FriendlyByteBuf buf) {
             return new AdrenalineGaugeSyncPacket(buf.readInt(), buf.readUUID());
         }
-
         public static void handle(AdrenalineGaugeSyncPacket msg, Supplier<NetworkEvent.Context> ctx) {
             ctx.get().enqueueWork(() -> {
-                Minecraft mc = Minecraft.getInstance();
-                if (mc.player != null && mc.player.getUUID().equals(msg.playerId)) {
-                    Adrenaline.adrenalineMap.put(msg.playerId, msg.gauge);
+                if (Objects.requireNonNull(Minecraft.getInstance().player).getUUID().equals(msg.playerId)) {
+                    getStatus(msg.playerId).adrenaline = msg.gauge;
                 }
             });
             ctx.get().setPacketHandled(true);
         }
     }
+
     public static class AdrenalineKeyPacket {
         public static void send() {
-            Rege.NetworkHandler.CHANNEL.sendToServer(new AdrenalineKeyPacket());
+            NetworkHandler.CHANNEL.sendToServer(new AdrenalineKeyPacket());
         }
-
         public static void encode(AdrenalineKeyPacket msg, FriendlyByteBuf buf) {}
-        public static AdrenalineKeyPacket decode(FriendlyByteBuf buf) {
-            return new AdrenalineKeyPacket();
-        }
-
+        public static AdrenalineKeyPacket decode(FriendlyByteBuf buf) { return new AdrenalineKeyPacket(); }
         public static void handle(AdrenalineKeyPacket msg, Supplier<NetworkEvent.Context> ctx) {
-            ctx.get().enqueueWork(() -> {
-                ServerPlayer player = ctx.get().getSender();
-                if (player != null) {
-                    UUID id = player.getUUID();
-                    Adrenaline.pressedMap.put(id, true);
+            ServerPlayer player = ctx.get().getSender();
+            if (player != null) {
+                UUID id = player.getUUID();
+                AdrenalineStatus s = getStatus(id);
+
+                // ✅ ゲージが100未満なら発動させない
+                if (s.adrenaline == 100 && !s.pressed) {
+                    s.pressed = true;
                 }
-            });
+            }
             ctx.get().setPacketHandled(true);
         }
 
     }
-    @SubscribeEvent
-    public static void onClientTick(TickEvent.ClientTickEvent event) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null) return;
-        if (ModKeyBindings.Adrenaline_MODE.isDown()) {
-            AdrenalineKeyPacket.send();
-        }
-    }
 
     @SubscribeEvent
-    public static void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase != TickEvent.Phase.END) return;
-        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
-        if (server == null) return;
-        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            Level level = player.level();
-            BlockPos center = player.blockPosition();
-            double radius = 50;
-            boolean hasHostile = !level.getEntitiesOfClass(Monster.class,
-                    new AABB(center).inflate(radius)).isEmpty();
+    public static void onClientTick(TickEvent.ClientTickEvent e) {
+        if (Minecraft.getInstance().player == null) return;
+        if (ModKeyBindings.Adrenaline_MODE.isDown()) AdrenalineKeyPacket.send();
+    }
+    @SubscribeEvent
+    public static void onServerTick(TickEvent.ServerTickEvent e) {
+        if (e.phase != TickEvent.Phase.END) return;
+        for (ServerPlayer player : ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayers()) {
             UUID id = player.getUUID();
-            int current = Adrenaline.adrenalineMap.getOrDefault(id, 0);
-            boolean pressed = Adrenaline.pressedMap.getOrDefault(id, false);
-            if (server.getTickCount() % 5 == 0 && hasHostile && current < 100 && !Pressed) {
-                Adrenaline.adrenalineMap.put(id, (current + 2));
-                IsDamaged = true;
-                Rege.NetworkHandler.CHANNEL.send(
-                        PacketDistributor.PLAYER.with(() -> player),
-                        new AdrenalineGaugeSyncPacket(current + 1, id)
-                );
-            }
-            if (current < 100 && !Pressed)
-            {
-                Adrenaline.pressedMap.put(id, false); // ✅ 怒りモード終了
-            }
-            if (current == 100 && !Pressed && pressed) {
-                level.playSound(
-                        null,
-                        player.blockPosition(),
-                        ModSounds.ADRENALINE_ACTIVE.get(),
-                        SoundSource.HOSTILE,
-                        0.4f,
-                        1.0f
-                );
-                Pressed = true;
-            }
-            if (server.getTickCount() % 2 == 0 & Pressed) {
-                Adrenaline.adrenalineMap.put(id, current - 2);
-                IsSounded = true;
-                IsDamaged = true;
-                Rege.NetworkHandler.CHANNEL.send(
-                        PacketDistributor.PLAYER.with(() -> player),
-                        new AdrenalineGaugeSyncPacket(current - 2, id)
-                );
-            }
-            if (current == 100 & IsSounded) {
-                level.playSound(
-                        null,
-                        player.blockPosition(),
-                        ModSounds.FULL_ADRENALINE.get(),
-                        SoundSource.HOSTILE,
-                        0.5f,
-                        1.0f
-                );
-                IsSounded = false;
-            }
+            AdrenalineStatus s = getStatus(id);
+            int tick = Objects.requireNonNull(player.level().getServer()).getTickCount();
+            int current = s.adrenaline;
+            Level level = player.level();
             AttributeInstance attr = player.getAttribute(Attributes.ATTACK_DAMAGE);
-            attr.removeModifier(ADRENALINE_ATTACK_BOOST); // 古いModifierを削除
-            attr.addTransientModifier(new AttributeModifier(
-                    ADRENALINE_ATTACK_BOOST_ID,
-                    "Rage Boost",
-                    MInfConfig.AdrenalinePower,
-                    AttributeModifier.Operation.MULTIPLY_BASE
-            ));
-            if (current == 0)
-            {
-                Pressed = false;
+            boolean hasHostile = !level.getEntitiesOfClass(Monster.class, new AABB(player.blockPosition()).inflate(50)).isEmpty();
+
+            if (tick % 5 == 0 && hasHostile && current < 100 && !s.pressed) {
+                s.adrenaline += 2;
+                s.isDamaged = true;
+                NetworkHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), new AdrenalineGaugeSyncPacket(s.adrenaline, id));
             }
-            if (Pressed && current > 0) {
-                if (attr != null && !attr.hasModifier(ADRENALINE_ATTACK_BOOST)) {
-                    attr.addTransientModifier(ADRENALINE_ATTACK_BOOST);
+
+            if (current == 100 && !s.isSounded_active && s.pressed) {
+                level.playSound(null, player.blockPosition(), ModSounds_Max.ADRENALINE_ACTIVE.get(), SoundSource.HOSTILE, 0.4f, 1.0f);
+                s.isSounded_active = true;
+            }
+
+            if (tick % 2 == 0 && s.pressed && s.adrenaline > 0){
+                s.adrenaline = Math.max(0, s.adrenaline - 2);
+                s.isSounded = true;
+                s.isDamaged = true;
+                NetworkHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), new AdrenalineGaugeSyncPacket(s.adrenaline, id));
+            }
+            if (s.adrenaline == 100 && s.isSounded) {
+                level.playSound(null, player.blockPosition(), ModSounds_Max.FULL_ADRENALINE.get(), SoundSource.HOSTILE, 1.0f, 1.0f);
+                s.isSounded = false;
+            }
+
+            if (attr != null) {
+                attr.removeModifier(BOOST_ID);
+                if (s.pressed && s.adrenaline > 0) {
+                    attr.addTransientModifier(new AttributeModifier(BOOST_ID, "Adrenaline Boost", MInfConfig.AdrenalinePower, AttributeModifier.Operation.MULTIPLY_BASE));
                 }
-            } else {
-                if (attr != null && attr.hasModifier(ADRENALINE_ATTACK_BOOST)) {
-                    attr.removeModifier(ADRENALINE_ATTACK_BOOST);
-                }
-            }
-        }
-
-    }
-    @Mod.EventBusSubscriber(modid = CHA.MODID)
-    public class AdrenalineDamageHandler {
-
-        @SubscribeEvent
-        public static void onPlayerHurt(LivingHurtEvent event) {
-            if (!(event.getEntity() instanceof ServerPlayer player)) return;
-            if (Adrenaline.Pressed)return;
-            UUID id = player.getUUID();
-            int adrenaline = Adrenaline.adrenalineMap.getOrDefault(id, 0);
-            Level level = player.level();
-            if (adrenaline >= 100) {
-                float originalDamage = event.getAmount();
-                float reduced = originalDamage * 0.65f;
-                event.setAmount(reduced);
-                level.playSound(
-                        null,
-                        player.blockPosition(),
-                        ModSounds.ADRENALINE_LOSS.get(),
-                        SoundSource.HOSTILE,
-                        1.0f,
-                        1.0f
-                );
             }
 
-            Adrenaline.adrenalineMap.put(id, 0);
+            if (s.adrenaline == 0) s.pressed = false;
+            if (s.adrenaline == 0) s.isSounded_active = false;
         }
     }
 
-
-    public static boolean Pressed = false;
-    public static boolean IsSounded = true;
-    public static boolean IsDamaged = true;
+    @SubscribeEvent
+    public static void onPlayerHurt(LivingHurtEvent e) {
+        if (!(e.getEntity() instanceof ServerPlayer p)) return;
+        AdrenalineStatus s = getStatus(p.getUUID());
+        if (s.pressed) return;
+        if (s.adrenaline >= 100) {
+            e.setAmount(e.getAmount() * 0.5f);
+            p.level().playSound(null, p.blockPosition(), ModSounds_Max.ADRENALINE_LOSS.get(), SoundSource.HOSTILE, 1.0f, 1.0f);
+        }
+        s.adrenaline = 0;
+    }
 
     @Mod.EventBusSubscriber(modid = CHA.MODID, value = Dist.CLIENT)
-    public class adrenaline_meterOverray {
+    public static class Overlay {
         @SubscribeEvent
-        public static void onRenderOverlay(RenderGuiOverlayEvent.Post event) {
-            if (!event.getOverlay().id().equals(VanillaGuiOverlay.PLAYER_HEALTH.id())) return;
-
+        public static void render(RenderGuiOverlayEvent.Pre e) {
+            if (!e.getOverlay().id().equals(VanillaGuiOverlay.DEBUG_TEXT.id())) return;
             Minecraft mc = Minecraft.getInstance();
-            LocalPlayer player = mc.player;
-            if (player == null) return;
+            LocalPlayer p = mc.player;
+            if (p == null) return;
+            UUID id = p.getUUID();
+            AdrenalineStatus s = getStatus(id);
+            GuiGraphics gui = e.getGuiGraphics();
 
-            GuiGraphics gui = event.getGuiGraphics();
-            UUID id = player.getUUID();
-            int screenWidth = mc.getWindow().getGuiScaledWidth();
-            int screenHeight = mc.getWindow().getGuiScaledHeight();
-            int current = Adrenaline.adrenalineMap.getOrDefault(id, 0);
-            int shakeAmplitude = 2;
-            int shakeX = 0;
-            int shakeY = 0;
+            int w = mc.getWindow().getGuiScaledWidth(), h = mc.getWindow().getGuiScaledHeight();
             long time = mc.level.getGameTime();
-            if (Adrenaline.Pressed && current > 0) {
-                shakeX = (int) (Math.sin(time * 0.5) * shakeAmplitude);
-                shakeY = (int) (Math.cos(time * 0.5) * shakeAmplitude);
-            }
-            // 🎯 画像サイズと位置
-            int iconWidth = 48;
-            int iconHeight = 48;
-            int x = screenWidth / 2 - iconWidth / 2 - 48 - 48 + shakeX;
-            int y = screenHeight - 79 + shakeY;
-            ResourceLocation ICON = new ResourceLocation(CHA.MODID, "textures/gui/adrenaline_meter.png");
-            gui.blit(ICON, x, y, 0, 0, iconWidth, iconHeight, iconWidth, iconHeight);
+            int shake = (s.pressed && s.adrenaline > 0) ? 2 : 0;
 
-            // 📊 ゲージ取得
-            int gauge = (int) Adrenaline.adrenalineMap.getOrDefault((Object) player.getUUID(), (int) 0.0);
-            int maxGauge = 100;
-            int barWidth = 36 ;
-            int barHeight = 5;
-            int filled = Math.min(gauge, maxGauge) * barWidth / maxGauge;
+            int shakeX = (int) (Math.sin(time * 0.5) * shake);
+            int shakeY = (int) (Math.cos(time * 0.5) * shake);
+            int iconW = 48, iconH = 48;
+            int baseX = (int) (w / 2 - iconW - 88 + shakeX - MInfConfig.AdrenarineX);
+            int baseY = (int) (h - 79 + shakeY - MInfConfig.AdrenarineY);
+            gui.blit(new ResourceLocation(CHA.MODID, "textures/gui/adrenaline_meter.png"), baseX, baseY, 0, 0, iconW, iconH, iconW, iconH);
 
-            int barX = x + 6 + shakeX;
-            int barY = y + 23 + shakeY;  // 画像の下＋少し余白
-            gui.fill(barX, barY, barX + filled, barY + barHeight, 0xFF44FF44);
+            int barW = 36, barH = 5, filled = Math.min(s.adrenaline, 100) * barW / 100;
+            gui.fill(baseX + 6, baseY + 23, baseX + 6 + filled, baseY + 23 + barH, 0xFF44FF44);
         }
     }
 }

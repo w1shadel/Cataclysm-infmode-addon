@@ -15,13 +15,13 @@ public class ModKeyBindings {
             "key.cha.rage",
             InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_V,
-            "key.categories.cha" // ← nullや空文字にしないこと！
+            "key.categories.cha"
     );
     public static final KeyMapping Adrenaline_MODE = new KeyMapping(
             "key.cha.adrenaline",
             InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_B,
-            "key.categories.cha" // ← nullや空文字にしないこと！
+            "key.categories.cha"
     );
     @Mod.EventBusSubscriber(modid = CHA.MODID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
     public class ModClientEvents {
