@@ -1,6 +1,8 @@
 {
   "key.cha.rage": "Rage Mode",
   "key.cha.adrenaline": "Adrenaline Mode",
+  "key.cha.parry": "Parry",
+  "item.cha.parry_core": "Scroll of Parry",
   "key.categories.cha": "Rage And Adrenaline",
   "itemGroup.cha.rage_and_adrenaline": "Rage And Adrenaline"
 }

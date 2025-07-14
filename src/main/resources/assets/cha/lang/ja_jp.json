@@ -1,6 +1,8 @@
 {
   "key.cha.rage": "レイジモード",
   "key.cha.adrenaline": "アドレナリンモード",
+  "key.cha.parry": "パリィ",
+  "item.cha.parry_core": "パリィの巻物",
   "key.categories.cha": "Rage And Adrenaline",
   "itemGroup.cha.rage_and_adrenaline": "Rage And Adrenalineのアイテム"
 }

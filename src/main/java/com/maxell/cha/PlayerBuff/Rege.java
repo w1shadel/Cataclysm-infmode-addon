@@ -156,9 +156,18 @@ public class Rege {
                 status.pressed = false;
                 status.isSounded = true;
                 status.isSounded_active = false;
+                status.missingtimer = 60;
                 pressedMap.put(id, false);
             }
-
+            if (!hostileNearby && status.Canmissing) {
+                if (status.missingtimer < 0 && tick % 2 == 0) {
+                    status.gauge = Math.max(0, status.gauge - 2);
+                    gaugeMap.put(id, status.gauge);
+                    NetworkHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), new RageGaugeSyncPacket(status.gauge, id));
+                } else {
+                    status.missingtimer--;
+                }
+            }
 
             AttributeInstance attr = player.getAttribute(Attributes.ATTACK_DAMAGE);
             if (attr != null) {

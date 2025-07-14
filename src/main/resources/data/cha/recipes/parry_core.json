@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "C": {"item": "minecraft:paper"},
+    "X": {"item": "minecraft:diamond"},
+    "V": {"item": "minecraft:netherite_ingot"}
+  },
+  "pattern": [
+    "XCC",
+    "VCC",
+    "XCC"
+  ],
+  "result": {
+    "item": "cha:parry_core"
+  },
+  "show_notification": true
+}

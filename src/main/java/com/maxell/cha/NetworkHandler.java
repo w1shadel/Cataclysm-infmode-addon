@@ -1,6 +1,7 @@
 package com.maxell.cha;
 
 import com.maxell.cha.PlayerBuff.Adrenaline;
+import com.maxell.cha.PlayerBuff.Parry.Parry;
 import com.maxell.cha.PlayerBuff.Rege;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.network.NetworkRegistry;
@@ -39,6 +40,13 @@ public class NetworkHandler {
                 Adrenaline.AdrenalineGaugeSyncPacket::encode,
                 Adrenaline.AdrenalineGaugeSyncPacket::decode,
                 Adrenaline.AdrenalineGaugeSyncPacket::handle
+        );
+        CHANNEL.registerMessage(
+                5,
+                Parry.ParryKeyPacket.class,
+                Parry.ParryKeyPacket::encode,
+                Parry.ParryKeyPacket::decode,
+                Parry.ParryKeyPacket::handle
         );
     }
 }

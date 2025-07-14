@@ -23,6 +23,12 @@ public class ModKeyBindings {
             GLFW.GLFW_KEY_B,
             "key.categories.cha"
     );
+    public static final KeyMapping PARRY = new KeyMapping(
+            "key.cha.parry",
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_F,
+            "key.categories.cha"
+    );
     @Mod.EventBusSubscriber(modid = CHA.MODID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
     public class ModClientEvents {
 
@@ -34,6 +40,10 @@ public class ModKeyBindings {
         @SubscribeEvent
         public static void onRegisterKeyMappings_adrenaline(RegisterKeyMappingsEvent event) {
             event.register(ModKeyBindings.Adrenaline_MODE);
+        }
+        @SubscribeEvent
+        public static void onRegisterKeyMappings_parry(RegisterKeyMappingsEvent event) {
+            event.register(ModKeyBindings.PARRY);
         }
     }
 

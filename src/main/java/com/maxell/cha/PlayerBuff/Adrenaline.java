@@ -3,6 +3,7 @@ package com.maxell.cha.PlayerBuff;
 import com.maxell.cha.CHA;
 import com.maxell.cha.Client.ModKeyBindings;
 import com.maxell.cha.NetworkHandler;
+import com.maxell.cha.PlayerBuff.Parry.ParryStatus;
 import com.maxell.cha.Register.ModSounds_Max;
 import com.maxell.cha.config.MInfConfig;
 import net.minecraft.client.Minecraft;
@@ -33,6 +34,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
+
+import static com.maxell.cha.PlayerBuff.Parry.Parry.getParryStatus;
 
 @Mod.EventBusSubscriber
 public class Adrenaline {
@@ -114,7 +117,7 @@ public class Adrenaline {
                 s.isSounded_active = true;
             }
 
-            if (tick % 2 == 0 && s.pressed && s.adrenaline > 0){
+            if (tick % 2 == 0 && s.pressed && s.adrenaline > 0) {
                 s.adrenaline = Math.max(0, s.adrenaline - 2);
                 s.isSounded = true;
                 s.isDamaged = true;
@@ -131,23 +134,40 @@ public class Adrenaline {
                     attr.addTransientModifier(new AttributeModifier(BOOST_ID, "Adrenaline Boost", MInfConfig.AdrenalinePower, AttributeModifier.Operation.MULTIPLY_BASE));
                 }
             }
-
+            if (!hasHostile && s.canmissing) {
+                if (s.missingtimer < 0 && tick % 2 == 0) {
+                    s.adrenaline = Math.max(0, s.adrenaline - 2);
+                    s.isSounded = true;
+                    s.isDamaged = true;
+                    NetworkHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), new AdrenalineGaugeSyncPacket(s.adrenaline, id));
+                } else {
+                    s.missingtimer--;
+                }
+            }
             if (s.adrenaline == 0) s.pressed = false;
             if (s.adrenaline == 0) s.isSounded_active = false;
+            if (s.adrenaline == 0) s.missingtimer = 60;
         }
     }
 
     @SubscribeEvent
     public static void onPlayerHurt(LivingHurtEvent e) {
         if (!(e.getEntity() instanceof ServerPlayer p)) return;
+        ParryStatus parry = getParryStatus(p.getUUID());
+        if (parry.isParrying && parry.parryTicks > 0) {
+            return;
+        }
         AdrenalineStatus s = getStatus(p.getUUID());
         if (s.pressed) return;
+
         if (s.adrenaline >= 100) {
             e.setAmount(e.getAmount() * 0.5f);
             p.level().playSound(null, p.blockPosition(), ModSounds_Max.ADRENALINE_LOSS.get(), SoundSource.HOSTILE, 1.0f, 1.0f);
         }
+
         s.adrenaline = 0;
     }
+
 
     @Mod.EventBusSubscriber(modid = CHA.MODID, value = Dist.CLIENT)
     public static class Overlay {

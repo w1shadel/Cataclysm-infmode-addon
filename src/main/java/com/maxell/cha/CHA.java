@@ -1,5 +1,6 @@
 package com.maxell.cha;
 
+import com.maxell.cha.Register.ModItem_Max;
 import com.maxell.cha.Register.ModSounds_Max;
 import com.maxell.cha.config.MConfigHolder;
 import com.maxell.cha.config.MInfConfig;
@@ -21,6 +22,7 @@ public class CHA
     {
         IEventBus modEventBus = context.getModEventBus();
         ModSounds_Max.SOUNDS.register(modEventBus);
+        ModItem_Max.ITEMS.register(modEventBus);
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, MConfigHolder.COMMON_SPEC, "rage-and-adrenaline.toml");
         modEventBus.addListener(this::onModConfigEvent);
     }
